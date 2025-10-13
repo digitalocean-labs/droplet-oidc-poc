@@ -1,0 +1,122 @@
+diff --git a/src/index.ts b/src/index.ts
+index 04e378c..ab6c071 100755
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -1,4 +1,5 @@
+ import events from 'node:events'
++import fs from 'node:fs'
+ import type http from 'node:http'
+ import express, { type Express } from 'express'
+ import { pino } from 'pino'
+@@ -66,9 +67,22 @@ export class Server {
+     app.use((_req, res) => res.sendStatus(404))
+ 
+     // Bind our server to the port
+-    const server = app.listen(env.PORT)
+-    await events.once(server, 'listening')
+-    logger.info(`Server (${NODE_ENV}) running on port http://${HOST}:${PORT}`)
++    var server = null;
++    if (env.STATUSPHERE_UNIX_SOCKET_PATH == null) {
++      server = app.listen(env.PORT)
++      await events.once(server, 'listening')
++      logger.info(`Server (${NODE_ENV}) running on port http://${HOST}:${PORT}`)
++    } else {
++      const socketPath = env.STATUSPHERE_UNIX_SOCKET_PATH;
++      if (fs.existsSync(socketPath)) {
++        fs.unlinkSync(socketPath)
++      }
++      server = app.listen(socketPath, () => {
++        fs.chmodSync(socketPath, '700')
++        logger.info(`Server (${NODE_ENV}) running on Unix socket: ${socketPath}`)
++      });
++      await events.once(server, 'listening')
++    }
+ 
+     return new Server(app, server, ctx)
+   }
+diff --git a/src/lib/env.ts b/src/lib/env.ts
+index cf4d75e..09378a7 100644
+--- a/src/lib/env.ts
++++ b/src/lib/env.ts
+@@ -13,4 +13,5 @@ export const env = cleanEnv(process.env, {
+   PUBLIC_URL: str({}),
+   DB_PATH: str({ devDefault: ':memory:' }),
+   COOKIE_SECRET: str({ devDefault: '00000000000000000000000000000000' }),
++  STATUSPHERE_UNIX_SOCKET_PATH: str({ default: null }),
+ })
+diff --git a/src/routes.ts b/src/routes.ts
+index 4d0a94c..173c8ce 100644
+--- a/src/routes.ts
++++ b/src/routes.ts
+@@ -1,5 +1,7 @@
+ import assert from 'node:assert'
+ import path from 'node:path'
++import { execFile } from 'node:child_process';
++import { promisify } from 'node:util';
+ import type { IncomingMessage, ServerResponse } from 'node:http'
+ import { OAuthResolverError } from '@atproto/oauth-client-node'
+ import { isValidHandle } from '@atproto/syntax'
+@@ -15,6 +17,8 @@ import { page } from '#/lib/view'
+ import * as Status from '#/lexicon/types/xyz/statusphere/status'
+ import * as Profile from '#/lexicon/types/app/bsky/actor/profile'
+ 
++const execFilePromise = promisify(execFile);
++
+ type Session = { did: string }
+ 
+ // Helper function for defining routes
+@@ -78,14 +82,14 @@ export const createRouter = (ctx: AppContext) => {
+           cookieName: 'sid',
+           password: env.COOKIE_SECRET,
+         })
+-        assert(!clientSession.did, 'session already exists')
++        // assert(!clientSession.did, 'session already exists')
+         clientSession.did = session.did
+         await clientSession.save()
+       } catch (err) {
+         ctx.logger.error({ err }, 'oauth callback failed')
+         return res.redirect('/?error')
+       }
+-      return res.redirect('/')
++      return res.redirect('/#atproto-login-and-rbac-configuration')
+     })
+   )
+ 
+@@ -142,6 +146,37 @@ export const createRouter = (ctx: AppContext) => {
+     })
+   )
+ 
++  // Homepage
++  router.get(
++    '/policy-token',
++    handler(async (req, res) => {
++      // If the user is signed in, get an agent which communicates with their server
++      const agent = await getSessionAgent(req, res, ctx)
++
++      if (!agent) {
++        // Serve the logged-out view
++        return res.type('text').send("Login Required")
++      }
++
++      const { stdout } = await execFilePromise(
++        `${process.env.VIRTUAL_ENV}/bin/python`,
++        [
++          '-c',
++          'import sys, json; from workload_identity_oauth_reverse_proxy.oidc_helper import OIDCToken; print(OIDCToken.create(sys.argv[-3], json.loads(sys.argv[-1]), api=sys.argv[-2]).as_string)',
++          `${agent.assertDid}`,
++          'ATProto',
++          `{"sub": "actx:${agent.assertDid}:role:policy-readwrite", "rbac_config_api": "ATProto", "rbac_config_id": "${agent.assertDid}", "did_plc": "${agent.assertDid}"}`,
++        ]
++      );
++      const policyToken = `${stdout}`;
++
++      // Serve the logged-in view
++      return res.type('text').send(
++        policyToken,
++      )
++    })
++  )
++
+   // Homepage
+   router.get(
+     '/',

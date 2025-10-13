@@ -1,0 +1,184 @@
+{
+  order cgi before respond
+  email {$ACME_EMAIL}
+  admin off
+  http_port {$PORT}
+  log {
+    output stderr
+    level DEBUG
+    format console
+  }
+}
+
+{$THIS_ENDPOINT} {
+  log {
+    output stderr
+  }
+
+  handle /images/* {
+    uri strip_prefix /images
+    file_server {
+      root {env.PWD}/images/
+    }
+  }
+
+  @oauth_redirect {
+    path /
+    path /auth/digitalocean/v1/callback
+    method GET
+  }
+
+  handle @oauth_redirect {
+    cgi * {env.PYTHON} -um workload_identity_oauth_reverse_proxy.cgi.auth.digitalocean.v1.callback {
+      pass_env THIS_ENDPOINT VIRTUAL_ENV DATABASE_URI DIGITALOCEAN_OAUTH_CLIENT_ID DIGITALOCEAN_OAUTH_CLIENT_SECRET
+    }
+  }
+
+  @openid_configuration {
+    path /.well-known/openid-configuration
+    method GET
+  }
+
+  handle @openid_configuration {
+    cgi * {env.PYTHON} -um workload_identity_oauth_reverse_proxy.cgi.well_known.openid_configuration {
+      pass_env THIS_ENDPOINT VIRTUAL_ENV DATABASE_URI
+    }
+  }
+
+  @jwks {
+    path /.well-known/jwks
+    method GET
+  }
+
+  handle @jwks {
+    cgi * {env.PYTHON} -um workload_identity_oauth_reverse_proxy.cgi.well_known.jwks {
+      pass_env THIS_ENDPOINT VIRTUAL_ENV DATABASE_URI
+    }
+  }
+
+  @oidc_refresh {
+    path /v1/oidc/refresh
+    method POST
+  }
+
+  handle @oidc_refresh {
+    cgi * {env.PYTHON} -um workload_identity_oauth_reverse_proxy.cgi.api.oidc.v1.refresh {
+      pass_env THIS_ENDPOINT VIRTUAL_ENV DATABASE_URI
+    }
+  }
+
+  @oidc_issue {
+    path /v1/oidc/issue
+    method POST
+  }
+
+  handle @oidc_issue {
+    cgi * {env.PYTHON} -um workload_identity_oauth_reverse_proxy.cgi.api.oidc.v1.issue {
+      pass_env THIS_ENDPOINT VIRTUAL_ENV DATABASE_URI
+    }
+  }
+
+  @oidc_prove {
+    path /v1/oidc/prove
+    method POST
+  }
+
+  handle @oidc_prove {
+    cgi * {env.PYTHON} -um workload_identity_oauth_reverse_proxy.cgi.api.oidc.v1.prove {
+      pass_env THIS_ENDPOINT VIRTUAL_ENV DATABASE_URI
+    }
+  }
+
+  @droplet_create {
+    path /v2/droplets
+    method POST
+  }
+
+  handle @droplet_create {
+    cgi * {env.PYTHON} -um workload_identity_oauth_reverse_proxy.cgi.api.digitalocean.v2.droplets.create {
+      pass_env THIS_ENDPOINT VIRTUAL_ENV DATABASE_URI
+    }
+  }
+
+  @spaces_keys_create {
+    path /v2/spaces/keys
+    method POST
+  }
+
+  handle @spaces_keys_create {
+    reverse_proxy unix/{$UNIX_SOCKET_PATH}
+  }
+
+  @databases_get_and_list {
+    path /v2/databases
+    path /v2/databases/*
+    method GET
+  }
+
+  handle @databases_get_and_list {
+    reverse_proxy unix/{$UNIX_SOCKET_PATH}
+  }
+
+  @git_request_auth {
+    path /info/refs
+    path /_rbac/*/*/info/refs
+    method GET
+    header !Authorization
+  }
+
+  handle @git_request_auth {
+    header WWW-Authenticate "Basic realm=\"Git Repository\""
+    respond "Unauthorized" 401
+  }
+
+  @git {
+    path /info/refs
+    path /git-upload-pack
+    path /git-receive-pack
+    path /_rbac/*/*/info/refs
+    path /_rbac/*/*/git-upload-pack
+    path /_rbac/*/*/git-receive-pack
+    method GET
+    method POST
+  }
+
+  handle @git {
+    cgi * {env.PYTHON} -um workload_identity_oauth_reverse_proxy.cgi.auth.git.v1.hcl_policy_upload {
+      pass_env THIS_ENDPOINT VIRTUAL_ENV DATABASE_URI DIGITALOCEAN_OAUTH_CLIENT_ID DIGITALOCEAN_OAUTH_CLIENT_SECRET
+    }
+  }
+
+  @atproto_login {
+    path /client-metadata.json
+    path /login
+    path /oauth/callback
+    path /policy-token
+    method GET
+    method POST
+  }
+
+  handle @atproto_login {
+    reverse_proxy unix/{$STATUSPHERE_UNIX_SOCKET_PATH}
+  }
+
+  @atproto_post {
+    path /xrpc/com.atproto.repo.createRecord
+    method POST
+  }
+
+  handle @atproto_post {
+    reverse_proxy unix/{$UNIX_SOCKET_PATH}
+  }
+
+  handle {
+    reverse_proxy https://api.digitalocean.com {
+      header_up Host api.digitalocean.com
+      header_up -X-Real-IP
+      header_up -Forwarded
+      header_up -Via
+      header_up -X-Forwarded-For
+      header_up -X-Forwarded-Proto
+      header_up -X-Forwarded-Host
+    }
+  }
+}

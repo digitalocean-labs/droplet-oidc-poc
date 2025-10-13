@@ -1,0 +1,19 @@
+spec:
+  name: droplet-oidc-poc
+  services:
+  - name: droplet-oidc-poc
+    dockerfile_path: Dockerfile
+    git:
+      branch: main
+      repo_clone_url: https://github.com/digitalocean-labs/droplet-oidc-poc.git
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+    envs:
+    - key: THIS_ENDPOINT
+      scope: RUN_TIME
+      value: ${APP_URL}
+    - key: DATABASE_URI
+      scope: RUN_TIME
+      value: ${droplet-oidc-poc-db.DATABASE_URL}
+  databases:
+  - name: droplet-oidc-poc-db

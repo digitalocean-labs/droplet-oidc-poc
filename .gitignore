@@ -1,0 +1,10 @@
+*.swp
+caddy
+spaces.keys.*.json
+post.json
+stdout.txt
+signing_key.jwt
+*.pem
+__pycache__/
+oauth_tokens/
+*.db

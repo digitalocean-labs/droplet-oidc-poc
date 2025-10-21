@@ -974,7 +974,7 @@ curl -s \
   "${URL}/xrpc/com.atproto.repo.createRecord" | jq
 
 # To view data from firehose run this before you createRecord
-# python -m workload_identity_oauth_reverse_proxy.firehose_to_ndjson handle.example.com | jq
+# python -m workload_identity_oauth_reverse_proxy.firehose_to_ndjson "${DID_PLC}" | jq
 ```
 
 As we move into a new paradigm of software development with AI agents by our side, we hope that DigitalOcean will be the platform you and your agents choose for elastic compute as they work together across organizations and open source projects, spinning up Droplets for development and testing.

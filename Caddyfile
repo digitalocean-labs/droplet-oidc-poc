@@ -16,7 +16,7 @@
   }
 
   handle /health {
-    respond "OK" 200
+    respond "200 OK" 200
   }
 
   handle /images/* {

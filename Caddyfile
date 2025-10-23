@@ -15,6 +15,10 @@
     output stderr
   }
 
+  handle /health {
+    respond "OK" 200
+  }
+
   handle /images/* {
     uri strip_prefix /images
     file_server {

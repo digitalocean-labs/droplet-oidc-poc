@@ -6,7 +6,9 @@ RUN set -x && \
   mv caddy /usr/bin/caddy
 
 
-FROM node:lts-alpine AS statusphere
+FROM python:3.12-alpine
+
+COPY --from=caddy /usr/bin/caddy /usr/bin/caddy
 
 ARG STATUSPHERE_GIT_COMMIT_SHA="e4721616df50cd317c198f4c00a4818d5626d4ce"
 
@@ -14,7 +16,17 @@ WORKDIR /statusphere-example-app
 COPY scripts/patches/statusphere-example-app/ _patches/
 
 RUN set -x \
-  && apk add --no-cache git python3 py3-pip make gcc g++ \
+  && apk --no-cache add \
+       ca-certificates \
+       git \
+       git-daemon \
+       openssh-keygen \
+       nodejs \
+       npm \
+       openssl \
+       make \
+       gcc \
+       g++ \
   && export TARGET_DIR=/statusphere-example-app \
   && export TARGET_REPO_URL=https://github.com/bluesky-social/statusphere-example-app.git \
   && export TARGET_COMMIT="${STATUSPHERE_GIT_COMMIT_SHA}" \
@@ -29,12 +41,6 @@ RUN set -x \
   && mv -v _patches/*.js ./ \
   && npm install \
   && npm run build
-
-FROM python:3.12-alpine
-
-COPY --from=caddy /usr/bin/caddy /usr/bin/caddy
-
-COPY --from=statusphere /statusphere-example-app /statusphere-example-app
 
 RUN set -x \
   && apk --no-cache add \

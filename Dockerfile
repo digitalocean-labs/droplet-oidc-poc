@@ -14,7 +14,7 @@ WORKDIR /statusphere-example-app
 COPY scripts/patches/statusphere-example-app/ _patches/
 
 RUN set -x \
-  && apk add --no-cache git python3 py3-pip \
+  && apk add --no-cache git python3 py3-pip make gcc g++ \
   && export TARGET_DIR=/statusphere-example-app \
   && export TARGET_REPO_URL=https://github.com/bluesky-social/statusphere-example-app.git \
   && export TARGET_COMMIT="${STATUSPHERE_GIT_COMMIT_SHA}" \

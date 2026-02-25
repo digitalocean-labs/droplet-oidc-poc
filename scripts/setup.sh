@@ -76,7 +76,8 @@ git config --global credential."${THIS_ENDPOINT}/_rbac/DigitalOcean/".helper \
 git branch -M main
 git add .
 git commit -sm "feat: configure model api key create access from droplet"
-git remote add deploy "${THIS_ENDPOINT}"
+TEAM_UUID=$(doctl account get -o json | jq -r .team.uuid)
+git remote add deploy "${THIS_ENDPOINT}/_rbac/DigitalOcean/${TEAM_UUID}"
 git push -u deploy main
 
 # View deployed config

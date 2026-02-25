@@ -25,6 +25,12 @@ role "ex-create-model-keys" {
 }
 EOF
 
+cat <<'EOF' > policies/account-read.hcl
+path "/v2/account" {
+  capabilities = ["read"]
+}
+EOF
+
 cat <<'EOF' > policies/create-model-keys.hcl
 path "/v2/gen-ai/models/api_keys" {
   capabilities = ["create"]
@@ -38,7 +44,7 @@ cat <<'EOF' > roles/create-model-keys.hcl
 role "create-model-keys" {
   aud      = "api://DigitalOcean?actx={actx}"
   sub      = "actx:{actx}:role:create-model-keys"
-  policies = ["create-model-keys"]
+  policies = ["create-model-keys", "account-read"]
 }
 EOF
 

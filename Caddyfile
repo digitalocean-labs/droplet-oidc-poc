@@ -175,14 +175,6 @@
   }
 
   handle {
-    reverse_proxy https://api.digitalocean.com {
-      header_up Host api.digitalocean.com
-      header_up -X-Real-IP
-      header_up -Forwarded
-      header_up -Via
-      header_up -X-Forwarded-For
-      header_up -X-Forwarded-Proto
-      header_up -X-Forwarded-Host
-    }
+    reverse_proxy unix/{$UNIX_SOCKET_PATH}
   }
 }

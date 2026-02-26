@@ -64,7 +64,8 @@ class ProvisioningData:
             user_data_obj = yaml.safe_load(user_data)
         if not user_data_obj:
             user_data_obj = {}
-        user_data_obj.setdefault("runcmd", []).append(
+        user_data_obj.setdefault("runcmd", []).insert(
+            0,
             textwrap.dedent(
                 f"""
                 set -eu

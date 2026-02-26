@@ -101,7 +101,7 @@ def create_authorize_url():
     params = {
         "response_type": "code",
         "client_id": DIGITALOCEAN_OAUTH_CLIENT_ID,
-        "scope": "account:read droplet:read database:read tag:read database:view_credentials spaces_key:create_credentials",
+        "scope": "read write",
         "state": state,
     }
 

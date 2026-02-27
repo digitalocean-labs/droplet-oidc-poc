@@ -144,7 +144,7 @@ systemctl enable --now litellm-sanitize-proxy.service
 echo "[OPENCODE_CLOUD_INIT] Enabled litellm + sanitize proxy systemd services"
 
 jq -n -c \
-  --arg name "opencode-$(openssl rand -hex 4)" \
+  --arg name "ai-$(openssl rand -hex 4).opencode" \
   --arg ipv4 "$(ip -4 addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -vE '^10\.')" \
     '{type: "A",
       name: $name,

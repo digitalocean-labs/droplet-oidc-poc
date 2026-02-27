@@ -10,6 +10,10 @@ package_update: true
 package_upgrade: false
 
 write_files:
+  - path: /opt/opencode/bootstrap/deployment-config.json
+    owner: root:root
+    permissions: "0600"
+    source_file: deployment-config.json
   - path: /usr/local/sbin/opencode-cloud-init.sh
     owner: root:root
     permissions: "0755"

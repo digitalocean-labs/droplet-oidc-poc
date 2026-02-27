@@ -44,6 +44,9 @@ set -x
 
 echo "[OPENCODE_CLOUD_INIT] Runnning OIDC based setup!!!"
 
+# Grab vars from cloud-init deployment config
+DOMAIN_NAME=$(cat /opt/opencode/bootstrap/deployment-config.json | jq -r '.domain_name')
+
 useradd -m -s $(which bash) agent
 echo "agent ALL=(ALL) NOPASSWD:ALL" | tee /etc/sudoers.d/90-cloud-init-users-agent
 chmod 440 /etc/sudoers.d/90-cloud-init-users-agent
@@ -139,5 +142,24 @@ systemctl daemon-reload
 systemctl enable --now litellm.service
 systemctl enable --now litellm-sanitize-proxy.service
 echo "[OPENCODE_CLOUD_INIT] Enabled litellm + sanitize proxy systemd services"
+
+jq -n -c \
+  --arg name "opencode-$(openssl rand -hex 4)" \
+  --arg ipv4 "$(ip -4 addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -vE '^10\.')" \
+    '{type: "A",
+      name: $name,
+      data: $ipv4,
+      priority: null,
+      port: null,
+      ttl: 1800,
+      weight: null,
+      flags: null,
+      tag: null,
+      }' | \
+curl -X POST \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d@- \
+  "${URL}/v2/domains/${DOMAIN_NAME}/records"
 
 echo "[OPENCODE_CLOUD_INIT] Complete"

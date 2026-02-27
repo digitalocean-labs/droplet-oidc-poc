@@ -40,13 +40,39 @@ path "/v2/gen-ai/models/api_keys" {
 }
 EOF
 
+cat <<EOF > policies/dns-register-self.hcl
+path "/v2/domains/${DOMAIN_NAME}/records" {
+  capabilities = ["create"]
+  allowed_parameters = {
+    "type" = "A",
+    "name" = "*\\.opencode"
+    "data" = "*"
+    "priority" = null,
+    "port" = null,
+    "ttl" = 1800,
+    "weight" = null,
+    "flags" = null,
+    "tag" = null
+  }
+}
+EOF
+
 cat <<'EOF' > roles/create-model-keys.hcl
 role "create-model-keys" {
   aud      = "api://DigitalOcean?actx={actx}"
   sub      = "actx:{actx}:role:create-model-keys"
-  policies = ["create-model-keys", "account-read"]
+  policies = ["create-model-keys", "account-read", "dns-register-self"]
 }
 EOF
+
+# Config for this deployment
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+jq -n \
+  --arg domain_name "${DOMAIN_NAME}" \
+    '{
+      domain_name: $domain_name,
+      }' | \
+  tee "${SCRIPT_DIR}/deployment-config.json"
 
 # Define the FQDN of your deployed API proxy
 export THIS_ENDPOINT="https://droplet-oidc.its1337.com"
@@ -83,8 +109,8 @@ git branch -M main
 git add .
 git commit -sm "feat: configure model api key create access from droplet"
 TEAM_UUID=$(doctl account get -o json | jq -r .team.uuid)
-git remote add deploy "${THIS_ENDPOINT}/_rbac/DigitalOcean/${TEAM_UUID}"
+git remote add deploy "${THIS_ENDPOINT}/_rbac/DigitalOcean/${TEAM_UUID}" || true
 git push -u deploy main
 
 # View deployed config
-git fetch --all && git show deploy/schema:rbac.json | jq
+git fetch --all && git show deploy/schema:rbac.json | yq -P

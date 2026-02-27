@@ -143,8 +143,22 @@ systemctl enable --now litellm.service
 systemctl enable --now litellm-sanitize-proxy.service
 echo "[OPENCODE_CLOUD_INIT] Enabled litellm + sanitize proxy systemd services"
 
+# TODO Configurable tied to policy, subdomain should come from deployment config
+INSTANCE_SUBDOMAIN="opencode"
+INSTANCE_NAME="ai-$(openssl rand -hex 4)"
+
 jq -n -c \
-  --arg name "ai-$(openssl rand -hex 4).opencode" \
+  --arg instance_subdomain "${INSTANCE_SUBDOMAIN}" \
+  --arg instance_name "${INSTANCE_NAME}" \
+    '{
+      instance_subdomain: $instance_subdomain,
+      instance_name: $instance_name,
+      }' | \
+	tee /opt/opencode/instance-config.json
+
+# Configure DNS
+jq -n -c \
+  --arg name "${INSTANCE_NAME}.${INSTANCE_SUBDOMAIN}" \
   --arg ipv4 "$(ip -4 addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -vE '^10\.')" \
     '{type: "A",
       name: $name,
@@ -160,6 +174,50 @@ curl -X POST \
   -H "Authorization: Bearer ${TOKEN}" \
   -H "Content-Type: application/json" \
   -d@- \
-  "${URL}/v2/domains/${DOMAIN_NAME}/records"
+  "${URL}/v2/domains/${DOMAIN_NAME}/records" \
+  | jq
+echo
+echo "[OPENCODE_CLOUD_INIT] DNS Configured for *.${INSTANCE_NAME}.${INSTANCE_SUBDOMAIN}.${DOMAIN_NAME}"
+
+jq -n -c \
+  --arg name "*.${INSTANCE_NAME}.${INSTANCE_SUBDOMAIN}" \
+  --arg ipv4 "$(ip -4 addr show eth0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -vE '^10\.')" \
+    '{type: "A",
+      name: $name,
+      data: $ipv4,
+      priority: null,
+      port: null,
+      ttl: 1800,
+      weight: null,
+      flags: null,
+      tag: null,
+      }' | \
+curl -X POST \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d@- \
+  "${URL}/v2/domains/${DOMAIN_NAME}/records" \
+  | jq
+echo
+echo "[OPENCODE_CLOUD_INIT] DNS Configured for *.${INSTANCE_NAME}.${INSTANCE_SUBDOMAIN}.${DOMAIN_NAME}"
+
+# Configure Caddy
+tee -a /etc/caddy/Caddyfile <<EOF
+hello-world.${INSTANCE_NAME}.${INSTANCE_SUBDOMAIN}.${DOMAIN_NAME} {
+  respond "Hello, world!"
+}
+EOF
+echo "[OPENCODE_CLOUD_INIT] HTTPS Configured for hello-world.${INSTANCE_NAME}.${INSTANCE_SUBDOMAIN}.${DOMAIN_NAME}"
+
+# tee -a /etc/caddy/Caddyfile <<EOF
+# tmux.${INSTANCE_NAME}.${INSTANCE_SUBDOMAIN}.${DOMAIN_NAME} {
+#   reverse_proxy 127.0.0.1:8080
+# }
+# EOF
+# echo "[OPENCODE_CLOUD_INIT] HTTPS Configured for tmux.${INSTANCE_NAME}.${INSTANCE_SUBDOMAIN}.${DOMAIN_NAME}"
+
+sudo systemctl daemon-reload
+sudo systemctl reload caddy
+echo "[OPENCODE_CLOUD_INIT] Caddy server reloaded HTTPS active"
 
 echo "[OPENCODE_CLOUD_INIT] Complete"

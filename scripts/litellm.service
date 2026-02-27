@@ -1,0 +1,18 @@
+[Unit]
+Description=LiteLLM Proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=litellm
+Group=litellm
+WorkingDirectory=/var/lib/litellm
+ExecStart=/usr/local/bin/litellm-start.sh
+Restart=always
+RestartSec=2
+EnvironmentFile=/etc/default/litellm
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+[Install]
+WantedBy=multi-user.target

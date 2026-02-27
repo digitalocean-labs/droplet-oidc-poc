@@ -1,0 +1,47 @@
+users:
+  - default
+  - name: litellm
+    system: true
+    shell: /usr/sbin/nologin
+    homedir: /var/lib/litellm
+    lock_passwd: true
+
+package_update: true
+package_upgrade: false
+
+write_files:
+  - path: /usr/local/sbin/opencode-cloud-init.sh
+    owner: root:root
+    permissions: "0755"
+    source_file: cloud-init.sh
+  - path: /opt/opencode/bootstrap/litellm-start.sh
+    owner: root:root
+    permissions: "0755"
+    source_file: litellm-start.sh
+  - path: /opt/opencode/bootstrap/opencode.json
+    owner: root:root
+    permissions: "0644"
+    source_file: opencode.json
+  - path: /opt/opencode/bootstrap/litellm-config.yaml
+    owner: root:root
+    permissions: "0644"
+    source_file: litellm-config.yaml
+  - path: /opt/opencode/bootstrap/litellm-sanitize-proxy.py
+    owner: root:root
+    permissions: "0755"
+    source_file: litellm-sanitize-proxy.py
+  - path: /opt/opencode/bootstrap/litellm.service
+    owner: root:root
+    permissions: "0644"
+    source_file: litellm.service
+  - path: /opt/opencode/bootstrap/litellm-sanitize-proxy.service
+    owner: root:root
+    permissions: "0644"
+    source_file: litellm-sanitize-proxy.service
+
+runcmd:
+  - [bash, -lc, "mkdir -p /opt/opencode/bootstrap"]
+  - [bash, -lc, /usr/local/sbin/opencode-cloud-init.sh]
+
+output:
+  all: "| tee -a /var/log/opencode-cloud-init.log"

@@ -1,0 +1,18 @@
+[Unit]
+Description=LiteLLM Sanitizing Proxy
+After=network-online.target litellm.service
+Wants=network-online.target
+Requires=litellm.service
+
+[Service]
+Type=simple
+User=litellm
+Group=litellm
+WorkingDirectory=/var/lib/litellm
+ExecStart=/opt/litellm/venv/bin/uv run --quiet /usr/local/bin/litellm-sanitize-proxy.py --listen 127.0.0.1:4001 --upstream http://127.0.0.1:4000
+Restart=always
+RestartSec=2
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+[Install]
+WantedBy=multi-user.target

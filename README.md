@@ -42,3 +42,5 @@ ssh -o IdentitiesOnly=yes -o IdentityFile="${HOME}/opkssh_server_group1" -t \
 ```
 
 Run opencode and ask it to do something (Model API key already configured)
+
+[![asciicast](https://asciinema.org/a/806124.svg)](https://asciinema.org/a/806124)

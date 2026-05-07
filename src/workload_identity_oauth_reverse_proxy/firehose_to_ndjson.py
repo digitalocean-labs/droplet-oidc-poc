@@ -1,3 +1,4 @@
+#!/usr/bin/env -S python -m uv run --quiet
 # /// script
 # dependencies = [
 #   "atproto==0.0.62",
@@ -12,6 +13,7 @@
 import asyncio
 import argparse
 import json
+import base64
 import logging
 import signal
 import sys
@@ -121,6 +123,13 @@ async def resolve_identifier(identifier: str) -> t.AsyncIterator[t.Tuple[str, st
     return results
 
 
+class BytesEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, bytes):
+            return base64.b64encode(obj).decode('utf-8')
+        return super().default(obj)
+
+
 @measure_events_per_second
 async def on_message(ctx: AppContext, message: firehose_models.MessageFrame) -> None:
     """Asynchronous handler for firehose messages, decorated to measure event rate."""
@@ -128,7 +137,7 @@ async def on_message(ctx: AppContext, message: firehose_models.MessageFrame) -> 
     if not isinstance(commit, models.ComAtprotoSyncSubscribeRepos.Commit):
         return
 
-    if commit.repo not in ctx.target_dids:
+    if ctx.target_dids and commit.repo not in ctx.target_dids:
         return
 
     try:
@@ -141,16 +150,18 @@ async def on_message(ctx: AppContext, message: firehose_models.MessageFrame) -> 
                 "time": commit.time,
                 **operation,  # Unpack operation data (action, collection, record, etc.)
             }
-            sys.stdout.write(json.dumps(output_event) + '\n')
+            sys.stdout.write(json.dumps(output_event, cls=BytesEncoder) + '\n')
             sys.stdout.flush()
     except Exception as e:
+        print(operation, file=sys.stderr)
         logging.error(f"Error processing commit seq {commit.seq} for {commit.repo}: {e}")
+        raise
 
 
 async def main() -> None:
     """Parses arguments, resolves identifiers, and starts the firehose client with graceful shutdown."""
     parser = argparse.ArgumentParser(description="Monitor Bluesky handles/DIDs and output new records as NDJSON.")
-    parser.add_argument('identifiers', nargs='+', help="A list of handles (e.g., 'bsky.app') or DIDs to monitor.")
+    parser.add_argument('identifiers', nargs='?', default=[], help="A list of handles (e.g., 'bsky.app') or DIDs to monitor.")
     args = parser.parse_args()
 
     app_context = AppContext()
@@ -161,9 +172,8 @@ async def main() -> None:
             app_context.did_to_handle_map[did] = handle
             app_context.target_dids.add(did)
 
-    if not app_context.target_dids:
-        logging.error("No valid identifiers could be resolved. Exiting.")
-        sys.exit(1)
+    if app_context.target_dids:
+        logging.info("No valid identifiers given. Streaming whole firehose.")
         
     message_handler = partial(on_message, app_context)
     firehose_client = AsyncFirehoseSubscribeReposClient()
@@ -193,4 +203,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-

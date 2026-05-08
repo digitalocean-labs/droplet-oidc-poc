@@ -58,6 +58,13 @@ PYTHON_TO_JSONSCHEMA_TYPE = {
 }
 
 
+SER_OPTS = hcl2.SerializationOptions(
+    with_comments=False,
+    explicit_blocks=False,
+    strip_string_quotes=True,
+    preserve_heredocs=False,
+)
+
 # --- Core Logic: HCL Parsing, Schema Generation, and Permission Checking ---
 
 
@@ -142,7 +149,10 @@ def load_configuration(
             continue
         for hcl_path in role_dir.rglob("*.hcl"):
             try:
-                content = hcl2.loads(hcl_path.read_text())
+                content = hcl2.loads(
+                    hcl_path.read_text(),
+                    serialization_options=SER_OPTS,
+                )
                 for role_group in content.get("role", []):
                     for role_name, role_def in role_group.items():
                         all_roles[role_name] = {
@@ -168,7 +178,10 @@ def load_configuration(
             meta_dict = {"policy": hcl_path.stem}
             policy_name = meta_dict.get("policy")
 
-            parsed_hcl = hcl2.loads(hcl_content)
+            parsed_hcl = hcl2.loads(
+                hcl_content,
+                serialization_options=SER_OPTS,
+            )
             policy_schemas = {
                 list(path_rule.keys())[0]: hcl_policy_to_json_schema(
                     list(path_rule.values())[0]

@@ -58,9 +58,14 @@ ENV VIRTUAL_ENV=/app-venv
 
 COPY Caddyfile /app/Caddyfile
 
-COPY . /app-src
 WORKDIR /app-src
-RUN uv pip install /app-src
+COPY pyproject.toml uv.lock ./
+RUN set -x \
+  && uv sync --frozen --no-install-project
+
+COPY . .
+RUN set -x \
+  && uv sync --frozen --no-editable
 
 # Modify the Caddyfile for App Platform, TLS not needed since it proxies
 RUN set -x && \

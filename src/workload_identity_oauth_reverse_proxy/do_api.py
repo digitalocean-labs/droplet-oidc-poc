@@ -21,7 +21,7 @@ def get_team_uuid(token: str) -> uuid.UUID:
         response_content = response.read()
 
     response_dict = json.loads(response_content)
-    return uuid.UUID(response_dict["account"]["team"]["uuid"])
+    return response_dict["account"]["team"]["uuid"]
 
 
 def do_droplet_get(token: str, droplet_id: str) -> dict:

@@ -65,7 +65,8 @@ RUN set -x \
 
 COPY . .
 RUN set -x \
-  && uv sync --frozen --no-editable
+  && uv sync --frozen --no-editable \
+  && uv pip install .
 
 # Modify the Caddyfile for App Platform, TLS not needed since it proxies
 RUN set -x && \
